@@ -65,13 +65,11 @@ st.markdown(
         .block-container { max-width:1400px; padding:2rem 3.5rem 2rem; position: relative; z-index: 10; }
         
         /* BRANDING LOGO */
-        .elli-brand-link { text-decoration: none !important; display: inline-block; cursor: pointer; transition: transform 0.2s ease; }
-        .elli-brand-link:hover { transform: scale(1.02); }
-        .elli-brand { display:flex; align-items:flex-end; gap:0.8rem; margin:.2rem 0 2rem 0; }
+        .elli-brand { display:flex; align-items:flex-end; gap:0.8rem; margin:.2rem 0 1rem 0; }
         .elli-brand h1 { font:700 clamp(2.5rem,6vw,4rem)/.72 "Space Grotesk",sans-serif; letter-spacing:0; margin:0; color:#f2f4f2; }
         .elli-brand p { font:600 0.8rem/1.22 "Space Grotesk",sans-serif; color:#c5cbc7; margin:0 0 0.3rem 0; max-width:11rem; }
         
-        .chat-shell { background:rgba(32,37,35,.88); border:2px solid var(--mint); border-radius:3.2rem; padding:1.5rem 1.6rem 1.2rem; min-height:32rem; box-shadow:0 0 32px rgba(30,229,170,.06); }
+        .chat-shell { background:rgba(32,37,35,.88); border:2px solid var(--mint); border-radius:3.2rem; padding:1.5rem 1.6rem 1.2rem; min-height:32rem; box-shadow:0 0 32px rgba(30,229,170,.06); margin-top: 1rem; }
         .chat-title { display:flex; justify-content:space-between; align-items:center; color:#e9efea; font:500 .77rem "DM Mono",monospace; letter-spacing:.1em; text-transform:uppercase; margin:0 .5rem 1.2rem; }
         .online-dot { display:inline-block; width:.55rem; height:.55rem; background:var(--mint); border-radius:50%; margin-right:.45rem; box-shadow:0 0 12px var(--mint); }
         .message { width:fit-content; max-width:76%; padding:1rem 1.2rem; margin:.85rem .45rem; border-radius:1.35rem; font:500 1rem/1.45 "Space Grotesk",sans-serif; }
@@ -202,6 +200,7 @@ if st.sidebar.button("Logout", key="logout_sidebar_btn"):
     auth.supabase.auth.sign_out()
     st.rerun()
 
+
 # Chat Initialization & Functions
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "Hello! I am ELLI. What would you like to explore today?"}]
@@ -263,17 +262,18 @@ def show_chat() -> None:
         st.session_state.messages.append({"role": "assistant", "content": ai_reply})
         st.rerun()
 
-# Render Header & Chat
+# Render Header & Navigation
 st.markdown(
     '''
-    <a href="landingpage" target="_self" class="elli-brand-link">
-        <div class="elli-brand">
-            <h1>ELLI</h1>
-            <p>Evolving<br>Large<br>Language<br>Intelligence</p>
-        </div>
-    </a>
+    <div class="elli-brand">
+        <h1>ELLI</h1>
+        <p>Evolving<br>Large<br>Language<br>Intelligence</p>
+    </div>
     ''', 
     unsafe_allow_html=True
 )
+
+# Use Streamlit's native routing to preserve session state
+st.page_link("pages/landingpage.py", label="View ELLI Architecture & Info", icon="ℹ️")
 
 show_chat()
