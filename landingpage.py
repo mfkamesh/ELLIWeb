@@ -3,7 +3,7 @@ from pathlib import Path
 import streamlit as st
 import streamlit.components.v1 as components
 
-ROOT = Path(__file__).parent.parent  # Adjust path to hit root instead of pages/
+ROOT = Path(__file__).parent.parent  # Points to the main ELLI-AI folder
 
 st.set_page_config(
     page_title="ELLI | Information & Architecture",
@@ -56,13 +56,9 @@ st.markdown(
         :root { --ink:#181b1a; --panel:#202523; --mint:#1ee5aa; --gold:#ffcb05; --soft:#b9c0bc; }
         .stApp { background:radial-gradient(circle at 25% 12%, #2a3530 0, #181b1a 32rem); color:#f5f7f5; }
         [data-testid="stHeader"] { background:transparent; } #MainMenu, footer { visibility:hidden; }
-        .block-container { max-width:1400px; padding:2rem 3.5rem 2rem; }
+        .block-container { max-width:1400px; padding:2rem 3.5rem 2rem; position: relative; z-index: 10; }
         
-        .nav-back { margin-bottom: 2rem; }
-        .nav-back a { color: var(--mint); text-decoration: none; font-family: "Space Grotesk", sans-serif; font-weight: 500; border: 1px solid var(--mint); padding: 0.5rem 1rem; border-radius: 1rem; transition: background 0.2s;}
-        .nav-back a:hover { background: rgba(30,229,170,.1); }
-
-        .hero-section { padding:2.2rem; border:1px solid rgba(30,229,170,.2); border-radius:2rem; background:linear-gradient(135deg, rgba(32,37,35,.95), rgba(18,23,20,.95)); box-shadow:0 0 28px rgba(30,229,170,.08); margin-bottom: 2rem; }
+        .hero-section { padding:2.2rem; border:1px solid rgba(30,229,170,.2); border-radius:2rem; background:linear-gradient(135deg, rgba(32,37,35,.95), rgba(18,23,20,.95)); box-shadow:0 0 28px rgba(30,229,170,.08); margin-bottom: 2rem; margin-top: 1rem; }
         .hero-section h2 { font:700 clamp(2.4rem,4vw,3.2rem) "Space Grotesk",sans-serif; color:#f4f7f4; margin:0; }
         .hero-subtitle { font:600 1.05rem "DM Mono",monospace; letter-spacing:.12em; text-transform:uppercase; color:var(--mint); margin:.35rem 0 .85rem; }
         .hero-copy { max-width:860px; font:400 1.02rem/1.7 "Space Grotesk",sans-serif; color:#dfe5e1; margin:0; }
@@ -75,14 +71,13 @@ st.markdown(
         .stTabs [data-baseweb="tab-list"] { gap: 2rem; }
         .stTabs [data-baseweb="tab"] { height: 3.5rem; white-space: pre-wrap; background-color: transparent; color: #b9c0bc; font-family: "Space Grotesk", sans-serif; font-size: 1.1rem; }
         .stTabs [aria-selected="true"] { color: var(--gold) !important; font-weight: 600; }
-        
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# Back Button pointing to main app (using Streamlit native URL for main page)
-st.markdown('<div class="nav-back"><a href="/" target="_self">← Return to Interface</a></div>', unsafe_allow_html=True)
+# Native Streamlit back button to preserve session state
+st.page_link("webpage.py", label="Return to Interface", icon="⬅️")
 
 st.markdown(
     """
