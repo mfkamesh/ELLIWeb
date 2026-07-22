@@ -245,10 +245,35 @@ def show_chat() -> None:
                 
     st.markdown("</div>", unsafe_allow_html=True)
 
-    if prompt := st.chat_input("Ask ELLI anything…"):
+if prompt := st.chat_input("Ask ELLI anything…"):
         st.session_state.confirm_clear = False
+        
+        # 1. Add user message to history and instantly update the UI
         st.session_state.messages.append({"role": "user", "content": prompt})
+        st.rerun()
 
+    # 2. If the last message was from the user, fetch the AI response
+    if st.session_state.messages[-1]["role"] == "user":
+        with st.spinner("ELLI is thinking…"):
+            try:
+                # Send the entire conversation history to the Cloud API
+                # We are using Llama 3 8B, which is incredibly fast and smart
+                chat_completion = groq_client.chat.completions.create(
+                    messages=st.session_state.messages,
+                    model="llama3-8b-8192",
+                    temperature=0.7,
+                    max_tokens=1024,
+                )
+                
+                # Extract the exact text response from the API
+                ai_reply = chat_completion.choices[0].message.content
+                
+            except Exception as e:
+                ai_reply = f"Error connecting to the intelligence core: {str(e)}"
+                
+            # 3. Save the real response to history and update the UI
+            st.session_state.messages.append({"role": "assistant", "content": ai_reply})
+            st.rerun()
         with st.spinner("ELLI is thinking…"):
             time.sleep(0.7)
             prompt_lower = prompt.lower()
