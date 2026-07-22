@@ -6,11 +6,8 @@ from pathlib import Path
 
 import streamlit as st
 import streamlit.components.v1 as components
-import auth
 from groq import Groq
-
-# Initialize the Groq client using your secret key
-groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+import auth
 
 # --- PAGE CONFIGURATION ---
 ROOT = Path(__file__).parent
@@ -21,7 +18,11 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# --- 1. GLOBAL UI SETTINGS (Must load before Gatekeeper) ---
+# --- 1. INITIALIZE API CLIENTS ---
+# Initialize the Groq client using your secret key
+groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+
+# --- 2. GLOBAL UI SETTINGS ---
 components.html(
     """
     <script>
@@ -57,7 +58,6 @@ components.html(
     width=0,
 )
 
-# Main CSS Styling
 st.markdown(
     """
     <style>
@@ -67,7 +67,6 @@ st.markdown(
         [data-testid="stHeader"] { background:transparent; } #MainMenu, footer { visibility:hidden; }
         .block-container { max-width:1400px; padding:2rem 3.5rem 2rem; position: relative; z-index: 10; }
         
-        /* BRANDING LOGO */
         .elli-brand { display:flex; align-items:flex-end; gap:0.8rem; margin:.2rem 0 1rem 0; }
         .elli-brand h1 { font:700 clamp(2.5rem,6vw,4rem)/.72 "Space Grotesk",sans-serif; letter-spacing:0; margin:0; color:#f2f4f2; }
         .elli-brand p { font:600 0.8rem/1.22 "Space Grotesk",sans-serif; color:#c5cbc7; margin:0 0 0.3rem 0; max-width:11rem; }
@@ -94,7 +93,7 @@ st.markdown(
 )
 
 
-# --- 2. AUTHENTICATION STATE & RECOVERY ---
+# --- 3. AUTHENTICATION STATE & RECOVERY ---
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "user_email" not in st.session_state:
@@ -109,7 +108,7 @@ except Exception:
     pass
 
 
-# --- 3. LOGIN PAGE FUNCTION ---
+# --- 4. LOGIN PAGE FUNCTION ---
 def show_login_page():
     st.markdown("<h2 style='text-align: center; color: #a8c7fa; padding-top: 5rem;'>Welcome to ELLI</h2>", unsafe_allow_html=True)
     
@@ -169,14 +168,14 @@ def show_login_page():
                             st.error(message)
 
 
-# --- 4. GATEKEEPER ---
+# --- 5. GATEKEEPER ---
 if not st.session_state.logged_in:
     show_login_page()
     st.stop()
 
 
 # ==========================================
-# --- 5. MAIN ELLI INTERFACE (LOGGED IN) ---
+# --- 6. MAIN ELLI INTERFACE (LOGGED IN) ---
 # ==========================================
 
 # Sidebar Controls
@@ -245,7 +244,7 @@ def show_chat() -> None:
                 
     st.markdown("</div>", unsafe_allow_html=True)
 
-if prompt := st.chat_input("Ask ELLI anything…"):
+    if prompt := st.chat_input("Ask ELLI anything…"):
         st.session_state.confirm_clear = False
         
         # 1. Add user message to history and instantly update the UI
@@ -257,7 +256,6 @@ if prompt := st.chat_input("Ask ELLI anything…"):
         with st.spinner("ELLI is thinking…"):
             try:
                 # Send the entire conversation history to the Cloud API
-                # We are using Llama 3 8B, which is incredibly fast and smart
                 chat_completion = groq_client.chat.completions.create(
                     messages=st.session_state.messages,
                     model="llama3-8b-8192",
@@ -274,29 +272,9 @@ if prompt := st.chat_input("Ask ELLI anything…"):
             # 3. Save the real response to history and update the UI
             st.session_state.messages.append({"role": "assistant", "content": ai_reply})
             st.rerun()
-        with st.spinner("ELLI is thinking…"):
-            time.sleep(0.7)
-            prompt_lower = prompt.lower()
-            if "hello" in prompt_lower or "hi" in prompt_lower:
-                ai_reply = "Hello! I am ELLI, and I am currently running in a front-end demo mode. I am ready to help you explore the project concept."
-            elif "team" in prompt_lower or "founder" in prompt_lower or "creator" in prompt_lower:
-                ai_reply = "The project is led by Team Eightfold, with Eddie Franco guiding the data science side and the rest of the team contributing to architecture and AI data engineering."
-            elif "learn" in prompt_lower or "about" in prompt_lower:
-                ai_reply = "ELLI is built around efficient adaptation, spontaneous learning, and a lightweight architecture designed to make advanced AI interaction feel more responsive and flexible."
-            else:
-                ai_reply = random.choice(
-                    [
-                        "Acknowledged. ELLI is ready to guide you through the project concept and its goals.",
-                        "That is a thoughtful question. The current demo keeps the experience focused on the interface and the project story.",
-                        f"Your message, '{prompt}', has been received. The full model connection is intentionally left for later, so this section focuses on the experience itself.",
-                    ]
-                )
-
-        st.session_state.messages.append({"role": "assistant", "content": ai_reply})
-        st.rerun()
 
 
-# --- Render Header & Navigation Menu ---
+# --- 7. Render Header & Navigation Menu ---
 st.markdown(
     '''
     <div class="elli-brand">
