@@ -7,6 +7,10 @@ from pathlib import Path
 import streamlit as st
 import streamlit.components.v1 as components
 import auth
+from groq import Groq
+
+# Initialize the Groq client using your secret key
+groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # --- PAGE CONFIGURATION ---
 ROOT = Path(__file__).parent
