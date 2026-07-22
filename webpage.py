@@ -18,7 +18,6 @@ st.set_page_config(
 )
 
 # --- 1. GLOBAL UI SETTINGS (Must load before Gatekeeper) ---
-# Background Animation
 components.html(
     """
     <script>
@@ -91,11 +90,19 @@ st.markdown(
 )
 
 
-# --- 2. AUTHENTICATION STATE ---
+# --- 2. AUTHENTICATION STATE & RECOVERY ---
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "user_email" not in st.session_state:
     st.session_state.user_email = ""
+
+try:
+    session = auth.supabase.auth.get_session()
+    if session:
+        st.session_state.logged_in = True
+        st.session_state.user_email = session.user.email
+except Exception:
+    pass
 
 
 # --- 3. LOGIN PAGE FUNCTION ---
@@ -172,7 +179,6 @@ if not st.session_state.logged_in:
 st.sidebar.markdown(f"**Logged in as:**<br>{st.session_state.user_email}", unsafe_allow_html=True)
 st.sidebar.divider()
 
-# Change Password Expander
 with st.sidebar.expander("Change Password"):
     with st.form("change_password_form"):
         update_pass = st.text_input("New Password", type="password", key="update_pass_input")
@@ -193,13 +199,11 @@ with st.sidebar.expander("Change Password"):
 
 st.sidebar.divider()
 
-# Sidebar Logout Button
 if st.sidebar.button("Logout", key="logout_sidebar_btn"):
     st.session_state.logged_in = False
     st.session_state.user_email = ""
     auth.supabase.auth.sign_out()
     st.rerun()
-
 
 # Chat Initialization & Functions
 if "messages" not in st.session_state:
@@ -262,7 +266,8 @@ def show_chat() -> None:
         st.session_state.messages.append({"role": "assistant", "content": ai_reply})
         st.rerun()
 
-# Render Header & Navigation
+
+# --- Render Header & Navigation Menu ---
 st.markdown(
     '''
     <div class="elli-brand">
@@ -273,7 +278,10 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Use Streamlit's native routing to preserve session state
-st.page_link("pages/landingpage.py", label="View ELLI Architecture & Info", icon="ℹ️")
+nav_col1, nav_col2, _ = st.columns([1, 1, 4])
+with nav_col1:
+    st.page_link("webpage.py", label="Chat", icon="💬")
+with nav_col2:
+    st.page_link("pages/landingpage.py", label="Home page", icon="🏠")
 
 show_chat()
