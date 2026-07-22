@@ -98,7 +98,6 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "user_email" not in st.session_state:
     st.session_state.user_email = ""
-# Track the ID of the current chat thread
 if "current_chat_id" not in st.session_state:
     st.session_state.current_chat_id = str(uuid.uuid4())
 
@@ -131,7 +130,7 @@ def show_login_page():
                         if success:
                             st.session_state.logged_in = True
                             st.session_state.user_email = login_email
-                            st.session_state.current_chat_id = str(uuid.uuid4()) # Fresh ID on login
+                            st.session_state.current_chat_id = str(uuid.uuid4())
                             st.rerun()
                         else:
                             st.error(result)
@@ -199,9 +198,7 @@ try:
     history_res = auth.supabase.table("chats").select("id, title").eq("user_email", st.session_state.user_email).order("created_at", desc=True).execute()
     if history_res.data:
         for past_chat in history_res.data:
-            # Display a button for each past chat
             if st.sidebar.button(past_chat["title"], key=f"chat_{past_chat['id']}", use_container_width=True):
-                # When clicked, load those messages from the DB
                 chat_data = auth.supabase.table("chats").select("messages").eq("id", past_chat["id"]).execute()
                 if chat_data.data:
                     st.session_state.current_chat_id = past_chat["id"]
@@ -232,7 +229,8 @@ with st.sidebar.expander("Settings / Logout"):
                 else:
                     st.error(message)
 
-    if st.form_submit_button("Logout", key="logout_sidebar_btn"):
+    # Fixed: Regular st.button outside of st.form
+    if st.sidebar.button("Logout", key="logout_sidebar_btn"):
         st.session_state.logged_in = False
         st.session_state.user_email = ""
         auth.supabase.auth.sign_out()
@@ -254,15 +252,12 @@ def show_chat() -> None:
     for message in st.session_state.messages:
         if message["role"] == "assistant":
             content = message["content"]
-            # Look for the hidden <think> tags using Regex
             think_match = re.search(r'<think>(.*?)</think>', content, re.DOTALL)
             
             if think_match:
-                # Separate the thinking from the final answer
                 thinking_text = think_match.group(1).strip()
                 final_answer = content.replace(think_match.group(0), "").strip()
                 
-                # Build a sleek dropdown for the cognitive process
                 formatted_content = f'''
                 <details style="margin-bottom: 12px; cursor: pointer;">
                     <summary style="font-size: 0.75rem; color: #1ee5aa; font-family: 'DM Mono', monospace; text-transform: uppercase;">🧠 View ELLI Cognition</summary>
@@ -309,13 +304,11 @@ def show_chat() -> None:
     if st.session_state.messages[-1]["role"] == "user":
         with st.spinner("ELLI is thinking…"):
             try:
-                # System instructions to force the "Thinking Layer"
                 system_instruction = {
                     "role": "system", 
                     "content": "You are ELLI, a hyper-adaptable AI agent. For every user message, you MUST output your internal thoughts and logic process wrapped exactly inside <think>...</think> tags BEFORE providing your final response to the user."
                 }
                 
-                # Prepend the secret instruction to the conversation history
                 api_messages = [system_instruction] + st.session_state.messages
                 
                 chat_completion = groq_client.chat.completions.create(
@@ -330,9 +323,7 @@ def show_chat() -> None:
                 
             st.session_state.messages.append({"role": "assistant", "content": ai_reply})
             
-            # Upsert the chat log into the Supabase database
             try:
-                # Auto-generate a short title from the user's first message
                 title_text = st.session_state.messages[1]["content"] if len(st.session_state.messages) > 1 else "New Chat"
                 chat_title = (title_text[:25] + "...") if len(title_text) > 25 else title_text
                 
