@@ -93,21 +93,13 @@ st.markdown(
 )
 
 
-# --- 3. AUTHENTICATION & SESSION TRACKING ---
+# --- 3. AUTHENTICATION (ISOLATED PER USER) ---
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "user_email" not in st.session_state:
     st.session_state.user_email = ""
 if "current_chat_id" not in st.session_state:
     st.session_state.current_chat_id = str(uuid.uuid4())
-
-try:
-    session = auth.supabase.auth.get_session()
-    if session:
-        st.session_state.logged_in = True
-        st.session_state.user_email = session.user.email
-except Exception:
-    pass
 
 
 # --- 4. LOGIN PAGE FUNCTION ---
@@ -229,7 +221,6 @@ with st.sidebar.expander("Settings / Logout"):
                 else:
                     st.error(message)
 
-    # Fixed: Regular st.button outside of st.form
     if st.sidebar.button("Logout", key="logout_sidebar_btn"):
         st.session_state.logged_in = False
         st.session_state.user_email = ""
@@ -350,10 +341,12 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-nav_col1, nav_col2, _ = st.columns([1, 1, 4])
+nav_col1, nav_col2, nav_col3, _ = st.columns([1, 1, 1.2, 3])
 with nav_col1:
     st.page_link("webpage.py", label="Chat", icon="💬")
 with nav_col2:
     st.page_link("pages/landingpage.py", label="Home page", icon="🏠")
+with nav_col3:
+    st.page_link("pages/dashboard.py", label="Performance", icon="📊")
 
 show_chat()
