@@ -1,18 +1,42 @@
 import base64
+import sys
 from pathlib import Path
 import streamlit as st
 import streamlit.components.v1 as components
 
-ROOT = Path(__file__).parent.parent  # Adjust path to hit root instead of pages/
+# Ensure we can import auth.py from the main folder
+ROOT = Path(__file__).parent.parent
+sys.path.append(str(ROOT))
+import auth
 
 st.set_page_config(
-    page_title="ELLI | Information & Architecture",
+    page_title="ELLI | Home page",
     page_icon="✦",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# Shared Background Logic
+# --- MEMORY PRESERVATION & GATEKEEPER ---
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "user_email" not in st.session_state:
+    st.session_state.user_email = ""
+
+try:
+    session = auth.supabase.auth.get_session()
+    if session:
+        st.session_state.logged_in = True
+        st.session_state.user_email = session.user.email
+except Exception:
+    pass
+
+if not st.session_state.logged_in:
+    st.error("Please log in from the main interface to view this page.")
+    st.page_link("webpage.py", label="Return to Login", icon="🔒")
+    st.stop()
+
+
+# --- SHARED UI LOGIC ---
 components.html(
     """
     <script>
@@ -48,7 +72,6 @@ components.html(
     width=0,
 )
 
-# Shared CSS
 st.markdown(
     """
     <style>
@@ -56,13 +79,13 @@ st.markdown(
         :root { --ink:#181b1a; --panel:#202523; --mint:#1ee5aa; --gold:#ffcb05; --soft:#b9c0bc; }
         .stApp { background:radial-gradient(circle at 25% 12%, #2a3530 0, #181b1a 32rem); color:#f5f7f5; }
         [data-testid="stHeader"] { background:transparent; } #MainMenu, footer { visibility:hidden; }
-        .block-container { max-width:1400px; padding:2rem 3.5rem 2rem; }
+        .block-container { max-width:1400px; padding:2rem 3.5rem 2rem; position: relative; z-index: 10; }
         
-        .nav-back { margin-bottom: 2rem; }
-        .nav-back a { color: var(--mint); text-decoration: none; font-family: "Space Grotesk", sans-serif; font-weight: 500; border: 1px solid var(--mint); padding: 0.5rem 1rem; border-radius: 1rem; transition: background 0.2s;}
-        .nav-back a:hover { background: rgba(30,229,170,.1); }
-
-        .hero-section { padding:2.2rem; border:1px solid rgba(30,229,170,.2); border-radius:2rem; background:linear-gradient(135deg, rgba(32,37,35,.95), rgba(18,23,20,.95)); box-shadow:0 0 28px rgba(30,229,170,.08); margin-bottom: 2rem; }
+        .elli-brand { display:flex; align-items:flex-end; gap:0.8rem; margin:.2rem 0 1rem 0; }
+        .elli-brand h1 { font:700 clamp(2.5rem,6vw,4rem)/.72 "Space Grotesk",sans-serif; letter-spacing:0; margin:0; color:#f2f4f2; }
+        .elli-brand p { font:600 0.8rem/1.22 "Space Grotesk",sans-serif; color:#c5cbc7; margin:0 0 0.3rem 0; max-width:11rem; }
+        
+        .hero-section { padding:2.2rem; border:1px solid rgba(30,229,170,.2); border-radius:2rem; background:linear-gradient(135deg, rgba(32,37,35,.95), rgba(18,23,20,.95)); box-shadow:0 0 28px rgba(30,229,170,.08); margin-bottom: 2rem; margin-top: 1rem; }
         .hero-section h2 { font:700 clamp(2.4rem,4vw,3.2rem) "Space Grotesk",sans-serif; color:#f4f7f4; margin:0; }
         .hero-subtitle { font:600 1.05rem "DM Mono",monospace; letter-spacing:.12em; text-transform:uppercase; color:var(--mint); margin:.35rem 0 .85rem; }
         .hero-copy { max-width:860px; font:400 1.02rem/1.7 "Space Grotesk",sans-serif; color:#dfe5e1; margin:0; }
@@ -75,14 +98,27 @@ st.markdown(
         .stTabs [data-baseweb="tab-list"] { gap: 2rem; }
         .stTabs [data-baseweb="tab"] { height: 3.5rem; white-space: pre-wrap; background-color: transparent; color: #b9c0bc; font-family: "Space Grotesk", sans-serif; font-size: 1.1rem; }
         .stTabs [aria-selected="true"] { color: var(--gold) !important; font-weight: 600; }
-        
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# Back Button pointing to main app (using Streamlit native URL for main page)
-st.markdown('<div class="nav-back"><a href="/" target="_self">← Return to Interface</a></div>', unsafe_allow_html=True)
+# --- Render Header & Navigation Menu ---
+st.markdown(
+    '''
+    <div class="elli-brand">
+        <h1>ELLI</h1>
+        <p>Evolving<br>Large<br>Language<br>Intelligence</p>
+    </div>
+    ''', 
+    unsafe_allow_html=True
+)
+
+nav_col1, nav_col2, _ = st.columns([1, 1, 4])
+with nav_col1:
+    st.page_link("webpage.py", label="Chat", icon="💬")
+with nav_col2:
+    st.page_link("pages/landingpage.py", label="Home page", icon="🏠")
 
 st.markdown(
     """
@@ -96,7 +132,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Utilizing Streamlit Tabs for clean organization of the data sections
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["Architecture", "Stats for Nerds", "Creators", "Proposal", "Sources"])
 
 with tab1:
@@ -121,7 +156,6 @@ with tab3:
     * **Architecture Engineers:** Roy Zhou, Brian Suh  
     * **AI Data Engineers:** Kamesh Surapuraju, Vikranth Maddali
     """)
-    # Only load README2.md if it exists, prevents crashing if file isn't in root
     readme_path = ROOT / "README2.md"
     if readme_path.exists():
         st.markdown(readme_path.read_text(encoding="utf-8"))
@@ -144,7 +178,6 @@ with tab5:
     if sources_path.exists():
         st.code(sources_path.read_text(encoding="utf-8"), language="bibtex")
     else:
-        # Fallback to hardcoded list if the text file goes missing
         st.markdown("""
         * **Datasets (via Hugging Face):** SmolLM-Corpus, GSM8K, Synthetic Text Summarization Dataset v1, Python Code Instructions 18k Alpaca, Scraped ChatGPT Conversations, OpenThoughts-Agent-SFT-100K, Prompts.chat
         * **Websites & Research Frameworks:** Streamlit Open-Source App Framework
