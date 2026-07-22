@@ -258,7 +258,7 @@ def show_chat() -> None:
                 # Send the entire conversation history to the Cloud API
                 chat_completion = groq_client.chat.completions.create(
                     messages=st.session_state.messages,
-                    model="llama3-8b-8192",
+                    model="llama-3.1-8b-instant",
                     temperature=0.7,
                     max_tokens=1024,
                 )
