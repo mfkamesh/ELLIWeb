@@ -1,6 +1,8 @@
 import base64
 import random
 import time
+import uuid
+import re
 from html import escape
 from pathlib import Path
 
@@ -19,7 +21,6 @@ st.set_page_config(
 )
 
 # --- 1. INITIALIZE API CLIENTS ---
-# Initialize the Groq client using your secret key
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # --- 2. GLOBAL UI SETTINGS ---
@@ -48,7 +49,6 @@ components.html(
                 <lottie-player src="https://lottie.host/80f7602e-13cb-4a11-8ec8-8cf81e3c8ca4/4xJ1t2T0B8.json" background="transparent" speed="0.6" style="width: 100%; height: 100%;" loop autoplay></lottie-player>
             `;
         };
-
         const stApp = parentDoc.querySelector('[data-testid="stAppViewContainer"]') || parentDoc.body;
         stApp.appendChild(container);
     }
@@ -93,11 +93,14 @@ st.markdown(
 )
 
 
-# --- 3. AUTHENTICATION STATE & RECOVERY ---
+# --- 3. AUTHENTICATION & SESSION TRACKING ---
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "user_email" not in st.session_state:
     st.session_state.user_email = ""
+# Track the ID of the current chat thread
+if "current_chat_id" not in st.session_state:
+    st.session_state.current_chat_id = str(uuid.uuid4())
 
 try:
     session = auth.supabase.auth.get_session()
@@ -128,6 +131,7 @@ def show_login_page():
                         if success:
                             st.session_state.logged_in = True
                             st.session_state.user_email = login_email
+                            st.session_state.current_chat_id = str(uuid.uuid4()) # Fresh ID on login
                             st.rerun()
                         else:
                             st.error(result)
@@ -149,7 +153,7 @@ def show_login_page():
                                 st.success(message)
                             else:
                                 if "rate limit" in message.lower() or "429" in message:
-                                    st.error("Rate limit exceeded. Please wait a moment or disable email confirmation in Supabase.")
+                                    st.error("Rate limit exceeded. Please wait or disable email confirmation in Supabase.")
                                 else:
                                     st.error(message)
 
@@ -178,11 +182,39 @@ if not st.session_state.logged_in:
 # --- 6. MAIN ELLI INTERFACE (LOGGED IN) ---
 # ==========================================
 
-# Sidebar Controls
+# Sidebar Controls & History
 st.sidebar.markdown(f"**Logged in as:**<br>{st.session_state.user_email}", unsafe_allow_html=True)
+
+# New Chat Button
+if st.sidebar.button("➕ New Chat", use_container_width=True):
+    st.session_state.current_chat_id = str(uuid.uuid4())
+    st.session_state.messages = [{"role": "assistant", "content": "Hello! I am ELLI. What would you like to explore today?"}]
+    st.rerun()
+
+st.sidebar.divider()
+st.sidebar.markdown("### Chat History")
+
+# Load history from Supabase
+try:
+    history_res = auth.supabase.table("chats").select("id, title").eq("user_email", st.session_state.user_email).order("created_at", desc=True).execute()
+    if history_res.data:
+        for past_chat in history_res.data:
+            # Display a button for each past chat
+            if st.sidebar.button(past_chat["title"], key=f"chat_{past_chat['id']}", use_container_width=True):
+                # When clicked, load those messages from the DB
+                chat_data = auth.supabase.table("chats").select("messages").eq("id", past_chat["id"]).execute()
+                if chat_data.data:
+                    st.session_state.current_chat_id = past_chat["id"]
+                    st.session_state.messages = chat_data.data[0]["messages"]
+                    st.rerun()
+    else:
+        st.sidebar.caption("No past conversations yet.")
+except Exception as e:
+    st.sidebar.caption("Could not load history. (Ensure SQL table is created)")
+
 st.sidebar.divider()
 
-with st.sidebar.expander("Change Password"):
+with st.sidebar.expander("Settings / Logout"):
     with st.form("change_password_form"):
         update_pass = st.text_input("New Password", type="password", key="update_pass_input")
         update_confirm = st.text_input("Confirm Password", type="password", key="update_confirm_input")
@@ -200,31 +232,55 @@ with st.sidebar.expander("Change Password"):
                 else:
                     st.error(message)
 
-st.sidebar.divider()
+    if st.form_submit_button("Logout", key="logout_sidebar_btn"):
+        st.session_state.logged_in = False
+        st.session_state.user_email = ""
+        auth.supabase.auth.sign_out()
+        st.rerun()
 
-if st.sidebar.button("Logout", key="logout_sidebar_btn"):
-    st.session_state.logged_in = False
-    st.session_state.user_email = ""
-    auth.supabase.auth.sign_out()
-    st.rerun()
 
-# Chat Initialization & Functions
+# Chat Initialization
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "Hello! I am ELLI. What would you like to explore today?"}]
+
 
 def show_chat() -> None:
     if "confirm_clear" not in st.session_state:
         st.session_state.confirm_clear = False
 
     conversation = '<div class="chat-shell"><div class="chat-title"><span><span class="online-dot"></span>ELLI conversation</span><span>v3.5.2</span></div>'
+    
+    # 1. RENDER CHAT INTERFACE & THINKING LAYER
     for message in st.session_state.messages:
-        style = "assistant-message" if message["role"] == "assistant" else "user-message"
-        label = "ELLI reply" if message["role"] == "assistant" else "Your message"
-        conversation += f'<div class="message {style}"><span class="message-label">{label}</span>{escape(message["content"])}</div>'
+        if message["role"] == "assistant":
+            content = message["content"]
+            # Look for the hidden <think> tags using Regex
+            think_match = re.search(r'<think>(.*?)</think>', content, re.DOTALL)
+            
+            if think_match:
+                # Separate the thinking from the final answer
+                thinking_text = think_match.group(1).strip()
+                final_answer = content.replace(think_match.group(0), "").strip()
+                
+                # Build a sleek dropdown for the cognitive process
+                formatted_content = f'''
+                <details style="margin-bottom: 12px; cursor: pointer;">
+                    <summary style="font-size: 0.75rem; color: #1ee5aa; font-family: 'DM Mono', monospace; text-transform: uppercase;">🧠 View ELLI Cognition</summary>
+                    <div style="font-size: 0.9rem; color: #a8b0ab; margin-top: 8px; padding-left: 12px; border-left: 2px solid rgba(30,229,170,.4); white-space: pre-wrap; font-family: 'DM Mono', monospace;">{escape(thinking_text)}</div>
+                </details>
+                <div style="white-space: pre-wrap;">{escape(final_answer)}</div>
+                '''
+            else:
+                formatted_content = f'<div style="white-space: pre-wrap;">{escape(content)}</div>'
+                
+            conversation += f'<div class="message assistant-message"><span class="message-label">ELLI reply</span>{formatted_content}</div>'
+        else:
+            conversation += f'<div class="message user-message"><span class="message-label">Your message</span><div style="white-space: pre-wrap;">{escape(message["content"])}</div></div>'
+            
     st.markdown(conversation + "</div>", unsafe_allow_html=True)
 
+    # 2. CLEAR CONVERSATION LOGIC
     st.markdown('<div class="clear-button">', unsafe_allow_html=True)
-    
     if not st.session_state.confirm_clear:
         if st.button("Clear conversation", key="clear_chat_init_btn"):
             st.session_state.confirm_clear = True
@@ -234,6 +290,7 @@ def show_chat() -> None:
         col1, col2 = st.columns([1, 5])
         with col1:
             if st.button("Yes, Clear", key="confirm_yes"):
+                st.session_state.current_chat_id = str(uuid.uuid4())
                 st.session_state.messages = [{"role": "assistant", "content": "Conversation reset. How can I help?"}]
                 st.session_state.confirm_clear = False
                 st.rerun()
@@ -241,36 +298,53 @@ def show_chat() -> None:
             if st.button("Cancel", key="confirm_no"):
                 st.session_state.confirm_clear = False
                 st.rerun()
-                
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # 3. AI GENERATION & DB SAVE
     if prompt := st.chat_input("Ask ELLI anything…"):
         st.session_state.confirm_clear = False
-        
-        # 1. Add user message to history and instantly update the UI
         st.session_state.messages.append({"role": "user", "content": prompt})
         st.rerun()
 
-    # 2. If the last message was from the user, fetch the AI response
     if st.session_state.messages[-1]["role"] == "user":
         with st.spinner("ELLI is thinking…"):
             try:
-                # Send the entire conversation history to the Cloud API
+                # System instructions to force the "Thinking Layer"
+                system_instruction = {
+                    "role": "system", 
+                    "content": "You are ELLI, a hyper-adaptable AI agent. For every user message, you MUST output your internal thoughts and logic process wrapped exactly inside <think>...</think> tags BEFORE providing your final response to the user."
+                }
+                
+                # Prepend the secret instruction to the conversation history
+                api_messages = [system_instruction] + st.session_state.messages
+                
                 chat_completion = groq_client.chat.completions.create(
-                    messages=st.session_state.messages,
+                    messages=api_messages,
                     model="llama-3.1-8b-instant",
                     temperature=0.7,
-                    max_tokens=1024,
+                    max_tokens=1500,
                 )
-                
-                # Extract the exact text response from the API
                 ai_reply = chat_completion.choices[0].message.content
-                
             except Exception as e:
                 ai_reply = f"Error connecting to the intelligence core: {str(e)}"
                 
-            # 3. Save the real response to history and update the UI
             st.session_state.messages.append({"role": "assistant", "content": ai_reply})
+            
+            # Upsert the chat log into the Supabase database
+            try:
+                # Auto-generate a short title from the user's first message
+                title_text = st.session_state.messages[1]["content"] if len(st.session_state.messages) > 1 else "New Chat"
+                chat_title = (title_text[:25] + "...") if len(title_text) > 25 else title_text
+                
+                auth.supabase.table("chats").upsert({
+                    "id": st.session_state.current_chat_id,
+                    "user_email": st.session_state.user_email,
+                    "title": chat_title,
+                    "messages": st.session_state.messages
+                }).execute()
+            except Exception as e:
+                print(f"Database save error: {e}")
+                
             st.rerun()
 
 
