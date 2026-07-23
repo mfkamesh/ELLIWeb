@@ -63,7 +63,7 @@ st.markdown(
     <style>
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap');
         :root { --ink:#181b1a; --panel:#202523; --mint:#1ee5aa; --gold:#ffcb05; --soft:#b9c0bc; }
-        .stApp { background:radial-gradient(circle at 25% 12%, #2a3530 0, #181b1a 32rem); color:#f5f7f5; }
+        # .stApp { background:radial-gradient(circle at 25% 12%, #2a3530 0, #101212 32rem); color:#f5f7f5; }
         [data-testid="stHeader"] { background:transparent; } #MainMenu, footer { visibility:hidden; }
         .block-container { max-width:1400px; padding:2rem 3.5rem 2rem; position: relative; z-index: 10; }
         
@@ -71,17 +71,17 @@ st.markdown(
         .elli-brand h1 { font:700 clamp(2.5rem,6vw,4rem)/.72 "Space Grotesk",sans-serif; letter-spacing:0; margin:0; color:#f2f4f2; }
         .elli-brand p { font:600 0.8rem/1.22 "Space Grotesk",sans-serif; color:#c5cbc7; margin:0 0 0.3rem 0; max-width:11rem; }
         
-        .chat-shell { background:rgba(32,37,35,.88); border:2px solid var(--mint); border-radius:3.2rem; padding:1.5rem 1.6rem 1.2rem; min-height:32rem; box-shadow:0 0 32px rgba(30,229,170,.06); margin-top: 1rem; }
+        .chat-shell { background:rgb(28, 36, 34); border:1px solid var(--mint); padding:1.5rem 1.6rem 1.2rem; min-height:32rem; box-shadow:0 0 32px rgba(30,229,170,.06); margin-top: 1rem; }
         .chat-title { display:flex; justify-content:space-between; align-items:center; color:#e9efea; font:500 .77rem "DM Mono",monospace; letter-spacing:.1em; text-transform:uppercase; margin:0 .5rem 1.2rem; }
-        .online-dot { display:inline-block; width:.55rem; height:.55rem; background:var(--mint); border-radius:50%; margin-right:.45rem; box-shadow:0 0 12px var(--mint); }
+        # .online-dot { display:inline-block; width:.55rem; height:.55rem; background:var(--mint); border-radius:50%; margin-right:.45rem; box-shadow:0 0 12px var(--mint); }
         .message { width:fit-content; max-width:76%; padding:1rem 1.2rem; margin:.85rem .45rem; border-radius:1.35rem; font:500 1rem/1.45 "Space Grotesk",sans-serif; }
         .assistant-message { background:#29302d; border:1px solid var(--mint); border-bottom-left-radius:.35rem; color:#f4f7f4; }
-        .user-message { background:transparent; border:1px solid #86aaa0; border-bottom-right-radius:.35rem; color:var(--gold); margin-left:auto; }
+        .user-message { background:transparent; border:1px solid #86aaa0; border-bottom-right-radius:.35rem; color:var(--mint); margin-left:auto; }
         .message-label { display:block; font:500 .65rem "DM Mono",monospace; letter-spacing:.1em; opacity:.72; text-transform:uppercase; margin-bottom:.38rem; }
         
-        [data-testid="stChatInput"] { border:2px solid var(--mint)!important; background:#202523!important; border-radius:1.5rem!important; padding:.38rem .55rem!important; margin-top:1.3rem; }
-        [data-testid="stChatInput"] textarea { color:var(--gold)!important; font:500 1.1rem "Space Grotesk",sans-serif!important; }
-        [data-testid="stChatInput"] textarea::placeholder { color:#a8b0ab!important; }
+        # [data-testid="stChatInput"] { border:2px solid var(--mint)!important; background:#202523!important; border-radius:1.5rem!important; padding:.38rem .55rem!important; margin-top:1.3rem; }
+        [data-testid="stChatInput"] textarea { color:var(--mint)!important; font:500 1.1rem "Space Grotesk",sans-serif!important; }
+        # [data-testid="stChatInput"] textarea::placeholder { color:#a8b0ab!important; }
         [data-testid="stChatInput"] button { background:var(--mint); border-radius:50%; }
         [data-testid="stChatInput"] button svg { fill:#13221b; }
         .clear-button button { border-color:#61716a!important; color:#b9c0bc!important; border-radius:1rem!important; font:.75rem "DM Mono",monospace!important; }
@@ -176,13 +176,84 @@ if not st.session_state.logged_in:
 # Sidebar Controls & History
 st.sidebar.markdown(f"**Logged in as:**<br>{st.session_state.user_email}", unsafe_allow_html=True)
 
+
+with st.sidebar.expander("Update Your Password", expanded=False):
+    with st.form("change_password_form"):
+        update_pass = st.text_input("New Password", type="password", key="update_pass_input")
+        update_confirm = st.text_input("Confirm Password", type="password", key="update_confirm_input")
+        update_submitted = st.form_submit_button("Update Password", key="update_submit_btn")
+        
+        if update_submitted:
+            if update_pass != update_confirm:
+                st.error("Passwords do not match.")
+            elif len(update_pass) < 6:
+                st.error("Password must be at least 6 characters.")
+            else:
+                success, message = auth.update_password(update_pass)
+                if success:
+                    st.success(message)
+                else:
+                    st.error(message)
+
+        if st.sidebar.button("Logout", key="logout_sidebar_btn"):
+            st.session_state.logged_in = False
+            st.session_state.user_email = ""
+            auth.supabase.auth.sign_out()
+            st.rerun()
+
+
+
+st.sidebar.divider()
 # New Chat Button
-if st.sidebar.button("➕ New Chat", use_container_width=True):
+if st.sidebar.button("+ New Chat", use_container_width=True):
     st.session_state.current_chat_id = str(uuid.uuid4())
     st.session_state.messages = [{"role": "assistant", "content": "Hello! I am ELLI. What would you like to explore today?"}]
     st.rerun()
 
-st.sidebar.divider()
+
+def delete_all_chats_for_user():
+    if not st.session_state.get("user_email"):
+        return False, "Please log in before deleting chats."
+
+    try:
+        if not hasattr(auth, "supabase"):
+            return False, "Supabase client is unavailable."
+
+        res = auth.supabase.table("chats").delete().eq("user_email", st.session_state.user_email).execute()
+        if getattr(res, "error", None):
+            return False, f"Could not delete chat history: {res.error}"
+        return True, "All chat history deleted."
+    except Exception as e:
+        return False, f"Error deleting chats: {e}"
+
+
+if "confirm_delete_all" not in st.session_state:
+    st.session_state.confirm_delete_all = False
+
+if st.sidebar.button("Delete ALL Chats", use_container_width=True, key="delete_all_chats_btn"):
+    st.session_state.confirm_delete_all = True
+
+if st.session_state.confirm_delete_all:
+    st.sidebar.write("WARNING: This will permanently delete all your chats!")
+    col1, col2 = st.columns([1, 5])
+    with col1:
+        if st.sidebar.button("Yes, Clear", key="confirm_yes_sidebar"):
+            success, message = delete_all_chats_for_user()
+            if success:
+                st.success(message)
+            else:
+                st.error(message)
+
+            st.session_state.confirm_delete_all = False
+            st.session_state.current_chat_id = str(uuid.uuid4())
+            st.session_state.messages = [{"role": "assistant", "content": "Conversation reset. How can I help?"}]
+            st.rerun()
+    with col2:
+        if st.sidebar.button("Cancel", key="confirm_no_sidebar"):
+            st.session_state.confirm_delete_all = False
+            st.rerun()
+st.markdown("</div>", unsafe_allow_html=True)    
+
 st.sidebar.markdown("### Chat History")
 
 # Load history from Supabase
@@ -201,31 +272,6 @@ try:
 except Exception as e:
     st.sidebar.caption("Could not load history. (Ensure SQL table is created)")
 
-st.sidebar.divider()
-
-with st.sidebar.expander("Settings / Logout"):
-    with st.form("change_password_form"):
-        update_pass = st.text_input("New Password", type="password", key="update_pass_input")
-        update_confirm = st.text_input("Confirm Password", type="password", key="update_confirm_input")
-        update_submitted = st.form_submit_button("Update Password", key="update_submit_btn")
-        
-        if update_submitted:
-            if update_pass != update_confirm:
-                st.error("Passwords do not match.")
-            elif len(update_pass) < 6:
-                st.error("Password must be at least 6 characters.")
-            else:
-                success, message = auth.update_password(update_pass)
-                if success:
-                    st.success(message)
-                else:
-                    st.error(message)
-
-    if st.sidebar.button("Logout", key="logout_sidebar_btn"):
-        st.session_state.logged_in = False
-        st.session_state.user_email = ""
-        auth.supabase.auth.sign_out()
-        st.rerun()
 
 
 # Chat Initialization
@@ -237,7 +283,7 @@ def show_chat() -> None:
     if "confirm_clear" not in st.session_state:
         st.session_state.confirm_clear = False
 
-    conversation = '<div class="chat-shell"><div class="chat-title"><span><span class="online-dot"></span>ELLI conversation</span><span>v3.5.2</span></div>'
+    conversation = '<div class="chat-shell"><div class="chat-title"><span><span class="online-dot"></span>ELLI conversation</span><span>v4.3.4</span></div>'
     
     # 1. RENDER CHAT INTERFACE & THINKING LAYER
     for message in st.session_state.messages:
@@ -251,7 +297,7 @@ def show_chat() -> None:
                 
                 formatted_content = f'''
                 <details style="margin-bottom: 12px; cursor: pointer;">
-                    <summary style="font-size: 0.75rem; color: #1ee5aa; font-family: 'DM Mono', monospace; text-transform: uppercase;">🧠 View ELLI Cognition</summary>
+                    <summary style="font-size: 0.75rem; color: #1ee5aa; font-family: 'DM Mono', monospace; text-transform: uppercase;"> View ELLI Cognition</summary>
                     <div style="font-size: 0.9rem; color: #a8b0ab; margin-top: 8px; padding-left: 12px; border-left: 2px solid rgba(30,229,170,.4); white-space: pre-wrap; font-family: 'DM Mono', monospace;">{escape(thinking_text)}</div>
                 </details>
                 <div style="white-space: pre-wrap;">{escape(final_answer)}</div>
@@ -272,7 +318,7 @@ def show_chat() -> None:
             st.session_state.confirm_clear = True
             st.rerun()
     else:
-        st.write("⚠️ Are you sure you want to clear this conversation?")
+        st.write("WARNING: Your chat will be lost forever! (A long time!)")
         col1, col2 = st.columns([1, 5])
         with col1:
             if st.button("Yes, Clear", key="confirm_yes"):
@@ -310,7 +356,7 @@ def show_chat() -> None:
                 )
                 ai_reply = chat_completion.choices[0].message.content
             except Exception as e:
-                ai_reply = f"Error connecting to the intelligence core: {str(e)}"
+                ai_reply = f"Error connecting to the model: {str(e)}"
                 
             st.session_state.messages.append({"role": "assistant", "content": ai_reply})
             
@@ -341,12 +387,12 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-nav_col1, nav_col2, nav_col3, _ = st.columns([1, 1, 1.2, 3])
+nav_col1, nav_col2, _ = st.columns([1, 7, 6])
 with nav_col1:
-    st.page_link("webpage.py", label="Chat", icon="💬")
+    st.page_link("webpage.py", label="Chat")
 with nav_col2:
-    st.page_link("pages/landingpage.py", label="Home page", icon="🏠")
-with nav_col3:
-    st.page_link("pages/dashboard.py", label="Performance", icon="📊")
+    st.page_link("pages/InfoPage.py", label="Info Center")
+# with nav_col3:
+#     st.page_link("pages/dashboard.py", label="Performance")
 
 show_chat()
